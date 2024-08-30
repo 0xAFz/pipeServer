@@ -1,0 +1,74 @@
+networks:
+  pipe-net:
+    name: pipe-net
+    driver: bridge
+
+volumes:
+  cassandra-data:
+
+services:
+  cassandra:
+    image: cassandra:5.0-rc1
+    container_name: cassandra-db
+    networks:
+      - pipe-net
+    ports:
+      - "127.0.0.1:9042:9042"
+    volumes:
+      - cassandra-data:/var/lib/cassandra
+    environment:
+      MAX_HEAP_SIZE: 4G
+      HEAP_NEWSIZE: 800M
+      CASSANDRA_USER: admin
+      CASSANDRA_PASSWORD: admin
+    deploy:
+      resources:
+        limits:
+          memory: 6g
+        reservations:
+          memory: 4g
+    healthcheck:
+      test: ["CMD", "cqlsh", "-e", "DESCRIBE KEYSPACES"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  cassandra-init:
+    image: cassandra:5.0-rc1
+    depends_on:
+      cassandra:
+        condition: service_healthy
+    volumes:
+      - ./init.cql:/docker-entrypoint-initdb.d/init-cassandra.cql
+    entrypoint: ["/bin/sh", "-c", "until cqlsh cassandra-db -e 'DESCRIBE KEYSPACES'; do sleep 10; done && cqlsh cassandra-db -f /docker-entrypoint-initdb.d/init-cassandra.cql"]
+    networks:
+      - pipe-net
+
+  pipe-server:
+    image: pipe/server
+    container_name: pipe-server
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      cassandra:
+        condition: service_healthy
+      cassandra-init:
+        condition: service_completed_successfully
+    restart: always
+    networks:
+      - pipe-net
+    volumes:
+      - ./.env:/app/.env
+      - ./assets:/app/assets
+    ports:
+      - "127.0.0.1:1323:1323"
+    deploy:
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+      resources:
+        limits:
+          memory: 1.5g
+        reservations:
+          memory: 1g
