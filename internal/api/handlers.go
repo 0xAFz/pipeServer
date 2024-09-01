@@ -224,6 +224,12 @@ func (w *WebApp) setPubKey(c echo.Context) error {
 		})
 	}
 
+	if len(strings.TrimSpace(pubkey.Value)) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]any{
+			"error": "PubKey can't be empty",
+		})
+	}
+
 	authUser := c.Get("user").(telebot.User)
 
 	u, err := w.App.Account.GetUserByID(authUser.ID)
