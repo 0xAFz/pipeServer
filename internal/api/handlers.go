@@ -23,117 +23,118 @@ import (
 )
 
 func (w *WebApp) index(c echo.Context) error {
-	log.Println("request from: ", c.Request().RequestURI)
+	log.Printf("Handling request to index endpoint from URI: %s", c.Request().RequestURI)
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "ok",
 	})
 }
 
 func (w *WebApp) getMe(c echo.Context) error {
-	log.Println("request from: ", c.Request().RequestURI)
+	log.Printf("Handling request to getMe endpoint from URI: %s", c.Request().RequestURI)
 	authUser := c.Get("user").(telebot.User)
 
 	u, err := w.App.Account.GetUserByID(authUser.ID)
 	if err != nil {
 		if err == gocql.ErrNotFound {
+			log.Printf("User not found for ID: %d. Creating new user.", authUser.ID)
 			newUser := entity.User{ID: authUser.ID, PrivateID: utils.GenerateRandomPrivateID(), CreatedAt: time.Now()}
 			err = w.App.Account.CreateUser(newUser)
 			if err != nil {
-				log.Println("error when creating new user: ", err)
+				log.Printf("Error creating new user for ID: %d, Error: %v", authUser.ID, err)
 				return c.JSON(http.StatusInternalServerError, map[string]any{
 					"error": "Failed to create user",
 				})
 			}
-			log.Println("new user created: ", newUser)
+			log.Printf("New user created successfully: %+v", newUser)
 			return c.JSON(http.StatusCreated, newUser)
 		}
-
-		log.Println("failed to get user: ", err)
+		log.Printf("Failed to retrieve user for ID: %d, Error: %v", authUser.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to get user",
 		})
 	}
 
+	log.Printf("User retrieved successfully for ID: %d", authUser.ID)
 	return c.JSON(http.StatusOK, u)
 }
 
 func (w *WebApp) getUser(c echo.Context) error {
-	log.Println("request from: ", c.Request().RequestURI)
-	privateID := c.Param("private_id")
+	log.Printf("Handling request to getUser endpoint from URI: %s", c.Request().RequestURI)
+	privateID := c.Param("privateID")
 
 	if privateID == "" {
-		log.Println("nil private id")
+		log.Println("Private ID is missing in request")
 		return c.JSON(http.StatusBadRequest, map[string]any{
-			"error": "private id can't be empty",
+			"error": "Private ID can't be empty",
 		})
 	}
 
 	u, err := w.App.Account.GetUserByPrivateID(privateID)
 	if err != nil {
 		if err == gocql.ErrNotFound {
-			log.Println("user not found: ", privateID)
+			log.Printf("User not found for PrivateID: %s", privateID)
 			return c.JSON(http.StatusNotFound, map[string]any{
-				"error": "user not found",
+				"error": "User not found",
 			})
 		}
-
-		log.Println("failed to get user: ", err)
+		log.Printf("Failed to retrieve user for PrivateID: %s, Error: %v", privateID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to get user",
 		})
 	}
 
+	log.Printf("User retrieved successfully for PrivateID: %s", privateID)
 	outUser := entity.User{PrivateID: u.PrivateID, PubKey: u.PubKey}
-
 	return c.JSON(http.StatusOK, outUser)
 }
 
 func (w *WebApp) getMessages(c echo.Context) error {
-	log.Println("request from: ", c.Request().RequestURI)
+	log.Printf("Handling request to getMessages endpoint from URI: %s", c.Request().RequestURI)
 	authUser := c.Get("user").(telebot.User)
 
 	messages, err := w.App.Message.GetUserMessages(authUser.ID)
 	if err != nil {
-		log.Println("failed to get user messages: ", err)
+		log.Printf("Failed to retrieve messages for UserID: %d, Error: %v", authUser.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to get user messages",
 		})
 	}
 
+	log.Printf("Messages retrieved successfully for UserID: %d", authUser.ID)
 	return c.JSON(http.StatusOK, messages)
 }
 
 func (w *WebApp) sendMessage(c echo.Context) error {
-	log.Println("request from: ", c.Request().RequestURI)
+	log.Printf("Handling request to sendMessage endpoint from URI: %s", c.Request().RequestURI)
 
 	var text entity.Text
 	err := c.Bind(&text)
 	if err != nil {
+		log.Println("Failed to bind request body to Text entity")
 		return c.JSON(http.StatusBadRequest, map[string]any{
-			"error": "message can't be empty",
+			"error": "Message can't be empty",
 		})
 	}
 
-	privateID := c.Param("private_id")
+	privateID := c.Param("privateID")
 	authUser := c.Get("user").(telebot.User)
 
 	if privateID == "" {
-		log.Println("nil private id")
+		log.Println("Private ID is missing in request")
 		return c.JSON(http.StatusBadRequest, map[string]any{
-			"error": "private id can't be empty",
+			"error": "Private ID can't be empty",
 		})
 	}
 
 	u, err := w.App.Account.GetUserByPrivateID(privateID)
 	if err != nil {
 		if err == gocql.ErrNotFound {
-			log.Println("user not found: ", privateID)
+			log.Printf("User not found for PrivateID: %s", privateID)
 			return c.JSON(http.StatusNotFound, map[string]any{
-				"error": "user not found",
+				"error": "User not found",
 			})
 		}
-
-		log.Println("failed to get user: ", err)
+		log.Printf("Failed to retrieve user for PrivateID: %s, Error: %v", privateID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to get user",
 		})
@@ -142,12 +143,13 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 	message := entity.Message{ID: gocql.TimeUUID(), FromUser: authUser.ID, ToUser: u.ID, Text: text.Message, Date: time.Now().Unix()}
 	err = w.App.Message.Send(message)
 	if err != nil {
-		log.Println("failed to send message: ", err)
+		log.Printf("Failed to send message from UserID: %d to UserID: %d, Error: %v", authUser.ID, u.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to send message",
 		})
 	}
 
+	log.Printf("Message sent successfully from UserID: %d to UserID: %d", authUser.ID, u.ID)
 	_, err = w.bot.Send(&telebot.Chat{ID: u.ID}, "یه پیام جدید داری.", &telebot.ReplyMarkup{
 		InlineKeyboard: [][]telebot.InlineButton{
 			{
@@ -160,44 +162,43 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 	})
 
 	if err != nil {
-		log.Println("can't send notif to user: ", err)
+		log.Printf("Failed to send notification to UserID: %d, Error: %v", u.ID, err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"status": "message sent.",
+		"status": "Message sent.",
 	})
 }
 
 func (w *WebApp) deleteAccount(c echo.Context) error {
-	log.Println("request from: ", c.Request().RequestURI)
+	log.Printf("Handling request to deleteAccount endpoint from URI: %s", c.Request().RequestURI)
 	authUser := c.Get("user").(telebot.User)
 
 	u, err := w.App.Account.GetUserByID(authUser.ID)
 	if err != nil {
 		if err == gocql.ErrNotFound {
-			log.Println("user not found: ", authUser.ID)
+			log.Printf("User not found for ID: %d", authUser.ID)
 			return c.JSON(http.StatusNotFound, map[string]any{
-				"error": "user not found",
+				"error": "User not found",
 			})
 		}
-
-		log.Println("failed to get user: ", err)
+		log.Printf("Failed to retrieve user for ID: %d, Error: %v", authUser.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to get user",
 		})
 	}
 
 	if err := w.App.Account.DeleteUser(u); err != nil {
-		log.Println("failed to dalete user: ", err)
-
+		log.Printf("Failed to delete user for ID: %d, Error: %v", u.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to delete user",
 		})
 	}
 
+	log.Printf("User deleted successfully for ID: %d", authUser.ID)
 	_, err = w.bot.Send(&telebot.Chat{ID: authUser.ID}, "حساب کاربری شما با موفقیت حذف شد. توجه داشته باشید که اگر دوباره وارد مینی اپ شوید حساب کاربری جدیدی برای شما ساخته می شود.")
 	if err != nil {
-		log.Println("can't send notif to user: ", err)
+		log.Printf("Failed to send account deletion notification to UserID: %d, Error: %v", authUser.ID, err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
@@ -206,14 +207,14 @@ func (w *WebApp) deleteAccount(c echo.Context) error {
 }
 
 func (w *WebApp) setPubKey(c echo.Context) error {
-	log.Println("request from: ", c.Request().RequestURI)
+	log.Printf("Handling request to setPubKey endpoint from URI: %s", c.Request().RequestURI)
 
 	var pubkey entity.PubKey
 	err := c.Bind(&pubkey)
 	if err != nil {
-		log.Println("set pubkey bad request")
+		log.Println("Failed to bind request body to PubKey entity")
 		return c.JSON(http.StatusBadRequest, map[string]any{
-			"error": "pubkey can't be empty",
+			"error": "PubKey can't be empty",
 		})
 	}
 
@@ -222,13 +223,12 @@ func (w *WebApp) setPubKey(c echo.Context) error {
 	u, err := w.App.Account.GetUserByID(authUser.ID)
 	if err != nil {
 		if err == gocql.ErrNotFound {
-			log.Println("user not found: ", authUser.ID)
+			log.Printf("User not found for ID: %d", authUser.ID)
 			return c.JSON(http.StatusNotFound, map[string]any{
-				"error": "user not found",
+				"error": "User not found",
 			})
 		}
-
-		log.Println("failed to get user: ", err)
+		log.Printf("Failed to retrieve user for ID: %d, Error: %v", authUser.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to get user",
 		})
@@ -237,12 +237,13 @@ func (w *WebApp) setPubKey(c echo.Context) error {
 	u.PubKey = pubkey.Value
 
 	if err := w.App.Account.SetPubKey(u); err != nil {
-		log.Println("failed to update user pubkey: ", err)
+		log.Printf("Failed to update PubKey for UserID: %d, Error: %v", u.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
-			"error": "Failed to update user pubkey",
+			"error": "Failed to update PubKey",
 		})
 	}
 
+	log.Printf("PubKey updated successfully for UserID: %d", authUser.ID)
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "ok",
 	})
@@ -253,55 +254,59 @@ func (w *WebApp) withAuth(next echo.HandlerFunc) echo.HandlerFunc {
 		initData := c.Request().Header.Get("Authorization")
 
 		if initData == "" {
-			log.Println("auth header missed")
+			log.Println("Authorization header is missing")
 			return c.JSON(http.StatusUnauthorized, map[string]any{
-				"error": "authorization required",
+				"error": "Authorization required",
 			})
 		}
 
 		authScheme := strings.Split(initData, " ")
 
-		authParamsLen := len(authScheme)
-		if authParamsLen < 2 || authParamsLen > 2 {
-			log.Println("auth scheme is not valid")
+		if len(authScheme) != 2 {
+			log.Println("Invalid authorization scheme format")
 			return c.JSON(http.StatusUnauthorized, map[string]any{
-				"error": "authorization scheme is not valid",
+				"error": "Authorization scheme is not valid",
 			})
 		}
 
-		if strings.Compare(authScheme[0], "tma") != 0 {
-			log.Println("auth scheme is not valid")
+		if authScheme[0] != "tma" {
+			log.Println("Invalid authorization scheme")
 			return c.JSON(http.StatusUnauthorized, map[string]any{
-				"error": "authorization scheme is not valid",
+				"error": "Authorization scheme is not valid",
 			})
 		}
 
 		isValid, err := w.validateInitData(authScheme[1], config.AppConfig.Token)
 		if err != nil {
-			log.Println("auth failed with error: ", err)
+			log.Printf("Authorization failed with error: %v", err)
 			return c.JSON(http.StatusUnauthorized, map[string]any{
 				"status": isValid,
-				"error":  "authorization failed",
+				"error":  "Authorization failed",
 			})
 		}
 
 		if !isValid {
-			log.Println("auth failed")
+			log.Println("Authorization failed due to invalid data")
 			return c.JSON(http.StatusUnauthorized, map[string]any{
 				"status": isValid,
-				"error":  "authorization failed",
+				"error":  "Authorization failed",
 			})
 		}
 
-		parsed, _ := url.ParseQuery(initData)
+		parsed, err := url.ParseQuery(initData)
+		if err != nil {
+			log.Println("Failed to parse init data from authorization header")
+			return err
+		}
+
 		var user telebot.User
 		if err := json.Unmarshal([]byte(parsed.Get("user")), &user); err != nil {
-			log.Println("error when unmarshaling init data user")
+			log.Println("Error unmarshalling user data from init data")
 			return err
 		}
 
 		c.Set("user", user)
-		log.Println(user)
+		log.Printf("User authenticated successfully: %+v", user)
 
 		return next(c)
 	}
@@ -310,7 +315,7 @@ func (w *WebApp) withAuth(next echo.HandlerFunc) echo.HandlerFunc {
 func (w *WebApp) validateInitData(inputData, botToken string) (bool, error) {
 	initData, err := url.ParseQuery(inputData)
 	if err != nil {
-		log.Println("couldn't parse web app input data")
+		log.Printf("Failed to parse web app input data: %v", err)
 		return false, err
 	}
 
@@ -335,8 +340,10 @@ func (w *WebApp) validateInitData(inputData, botToken string) (bool, error) {
 	hash := hex.EncodeToString(hHash.Sum(nil))
 
 	if initData.Get("hash") != hash {
+		log.Printf("Hash mismatch: expected %s, got %s", hash, initData.Get("hash"))
 		return false, nil
 	}
 
+	log.Println("Init data validated successfully")
 	return true, nil
 }
