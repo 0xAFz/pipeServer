@@ -116,6 +116,12 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 		})
 	}
 
+	if len(strings.TrimSpace(text.Message)) == 0 {
+		return c.JSON(http.StatusBadRequest, map[string]any{
+			"error": "Message can't be empty",
+		})
+	}
+
 	privateID := c.Param("privateID")
 	authUser := c.Get("user").(telebot.User)
 
