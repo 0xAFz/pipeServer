@@ -38,6 +38,7 @@ services:
 
   cassandra-init:
     image: cassandra:5.0-rc1
+    container_name: cassandra-init
     depends_on:
       cassandra:
         condition: service_healthy
