@@ -30,6 +30,12 @@ func (r *RedisRepo) GetMessages(ctx context.Context, userID, start, stop int64) 
 	if err != nil {
 		return nil, err
 	}
+
+	cmd = r.client.B().Ltrim().Key(listKey).Start(start).Stop(stop).Build()
+	if err := r.client.Do(ctx, cmd).Error(); err != nil {
+		return nil, err
+	}
+
 	return messages, nil
 }
 
