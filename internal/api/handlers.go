@@ -148,8 +148,7 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 	}
 
 	message := entity.Message{ID: gocql.TimeUUID(), FromUser: authUser.ID, ToUser: u.ID, Text: text.Message, Date: time.Now().Unix()}
-	err = w.App.Message.Send(message)
-	if err != nil {
+	if err := w.App.Message.Send(message); err != nil {
 		log.Printf("Failed to send message from UserID: %d to UserID: %d, Error: %v", authUser.ID, u.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to send message",
