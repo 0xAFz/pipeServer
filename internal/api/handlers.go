@@ -14,6 +14,7 @@ import (
 	"pipe/internal/entity"
 	"pipe/pkg/utils"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -155,6 +156,22 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 		})
 	}
 
+	outMessage := entity.Message{ID: message.ID, Text: message.Text, Date: message.Date}
+	messageJSON, err := json.Marshal(outMessage)
+	if err != nil {
+		log.Printf("Failed to serialize message to JSON, Error: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]any{
+			"error": "Failed to serialize message",
+		})
+	}
+
+	if err := w.App.Message.AddToRedis(c.Request().Context(), u.ID, string(messageJSON)); err != nil {
+		log.Printf("Failed to add message to Redis, Error: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]any{
+			"error": "Failed to add message to Redis",
+		})
+	}
+
 	log.Printf("Message sent successfully from UserID: %d to UserID: %d", authUser.ID, u.ID)
 	_, err = w.bot.Send(&telebot.Chat{ID: u.ID}, "یه پیام جدید داری.", &telebot.ReplyMarkup{
 		InlineKeyboard: [][]telebot.InlineButton{
@@ -261,6 +278,40 @@ func (w *WebApp) setPubKey(c echo.Context) error {
 	})
 }
 
+func (w *WebApp) getUpdates(c echo.Context) error {
+	log.Printf("Handling request to getUpdates endpoint from URI: %s", c.Request().RequestURI)
+
+	timeoutStr := c.QueryParam("timeout")
+	if timeoutStr == "" {
+		timeoutStr = "0.0"
+	}
+	timeout, err := strconv.ParseFloat(timeoutStr, 64)
+	if err != nil {
+		log.Printf("Invalid timeout value: %v", err)
+		return echo.NewHTTPError(http.StatusBadRequest, "Invalid timeout value")
+	}
+
+	authUser := c.Get("user").(telebot.User)
+
+	messages, err := w.App.Message.GetRedisMessages(c.Request().Context(), authUser.ID, -100, -1)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]any{
+			"error": "Failed to get messages",
+		})
+	}
+
+	if len(messages) > 0 {
+		return c.JSON(http.StatusOK, messages)
+	}
+
+	message, err := w.App.Message.ListenForNewMessage(c.Request().Context(), authUser.ID, timeout)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusNoContent, "timeout")
+	}
+
+	return c.JSON(http.StatusOK, message)
+}
+
 func (w *WebApp) withAuth(next echo.HandlerFunc) echo.HandlerFunc {
 	return func(c echo.Context) error {
 		initData := c.Request().Header.Get("Authorization")
@@ -352,7 +403,7 @@ func (w *WebApp) validateInitData(inputData, botToken string) (bool, error) {
 	hash := hex.EncodeToString(hHash.Sum(nil))
 
 	if initData.Get("hash") != hash {
-		log.Printf("Hash mismatch: expected %s, got %s", hash, initData.Get("hash"))
+		log.Printf("Hash mismatch: %s", initData.Get("hash"))
 		return false, nil
 	}
 

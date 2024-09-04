@@ -1,6 +1,7 @@
-package repositories
+package repository
 
 import (
+	"context"
 	"pipe/internal/entity"
 )
 
@@ -20,4 +21,10 @@ type Message interface {
 	ByUserID(ID int64) ([]entity.Message, error)
 	DeleteAllByUserID(ID int64) error
 	Send(message entity.Message) error
+}
+
+type RedisRepository interface {
+	PushMessage(ctx context.Context, userID int64, message string) error
+	GetMessages(ctx context.Context, userID, start, stop int64) ([]string, error)
+	WaitForNewMessage(ctx context.Context, userID int64, timeout float64) (string, error)
 }

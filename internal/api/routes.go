@@ -22,4 +22,5 @@ func (w *WebApp) routes() {
 	w.e.POST("/sendMessage/:privateID", w.sendMessage, w.withAuth)
 	w.e.DELETE("/deleteAccount", w.deleteAccount, w.withAuth)
 	w.e.PATCH("/setPubKey", w.setPubKey, w.withAuth)
+	w.e.GET("/getUpdates", w.getUpdates, w.withAuth)
 }

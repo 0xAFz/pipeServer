@@ -2,14 +2,14 @@ package services
 
 import (
 	"pipe/internal/entity"
-	"pipe/internal/repositories"
+	"pipe/internal/repository"
 )
 
 type AccountService struct {
-	repo repositories.Account
+	repo repository.Account
 }
 
-func NewAccountService(repo repositories.Account) *AccountService {
+func NewAccountService(repo repository.Account) *AccountService {
 	return &AccountService{repo: repo}
 }
 

@@ -7,6 +7,7 @@ import (
 )
 
 type Config struct {
+	RedisHost         string
 	CassandraHost     string
 	CassandraKeyspace string
 	Token             string
@@ -27,6 +28,7 @@ func LoadConfig() {
 	}
 
 	AppConfig = &Config{
+		RedisHost:         viper.GetString("REDIS_HOST"),
 		CassandraHost:     viper.GetString("CASSANDRA_HOST"),
 		CassandraKeyspace: viper.GetString("CASSANDRA_KEYSPACE"),
 		Token:             viper.GetString("TOKEN"),

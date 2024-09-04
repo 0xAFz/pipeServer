@@ -7,9 +7,10 @@ import (
 	"os/signal"
 	"pipe/internal/api"
 	"pipe/internal/bot"
-	"pipe/internal/cassandra"
 	"pipe/internal/config"
-	"pipe/internal/repositories"
+	"pipe/internal/repository"
+	"pipe/internal/repository/cassandra"
+	"pipe/internal/repository/redis"
 	"pipe/internal/services"
 	"time"
 )
@@ -20,17 +21,23 @@ func Serve() {
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	session, err := cassandra.NewCassandraSession()
+	cassandraSession, err := cassandra.NewCassandraSession(config.AppConfig.CassandraHost, config.AppConfig.CassandraKeyspace)
 	if err != nil {
 		log.Fatalf("failed connect to cassandra: %v", err)
 	}
 
-	accountRepository := repositories.NewAccountCassandraRepository(session)
-	messageRepository := repositories.NewMessageCassandraRepository(session)
+	redisClient, err := redis.NewRedisClient(config.AppConfig.RedisHost)
+	if err != nil {
+		log.Fatalf("failed connect to redis: %v", err)
+	}
+
+	accountRepository := repository.NewAccountCassandraRepository(cassandraSession)
+	messageRepository := repository.NewMessageCassandraRepository(cassandraSession)
+	redisRepository := repository.NewRedisRepository(redisClient)
 
 	app := services.NewApp(
 		services.NewAccountService(accountRepository),
-		services.NewMessageService(messageRepository),
+		services.NewMessageService(messageRepository, redisRepository),
 	)
 
 	tg, err := bot.NewTelegram(ctx, app)
