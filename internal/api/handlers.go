@@ -298,7 +298,7 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 
 	messagesJSON, err := w.App.Message.GetRedisMessages(c.Request().Context(), authUser.ID, 0, -1)
 	if err != nil {
-		log.Printf("Failed to get messages for user: %d with error: %v\n", authUser.ID, err)
+		log.Printf("Failed to get messages for user: %d, Error: %v\n", authUser.ID, err)
 		if errors.Is(err, rueidis.Nil) {
 			return c.JSON(http.StatusNoContent, map[string]any{
 				"error": "Messages are empty",
@@ -308,12 +308,13 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 			"error": "Failed to get messages",
 		})
 	}
+	log.Println("Messages JSON: ", messagesJSON)
 
 	var messages []entity.Message
 	for _, msgJSON := range messagesJSON {
 		var msg entity.Message
 		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
-			log.Printf("Failed to deserialize message: %v", err)
+			log.Printf("Failed to deserialize message: %s, Error: %v", msgJSON, err)
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": "Failed to deserialize message",
 			})
@@ -339,12 +340,13 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 			"error": "timeout",
 		})
 	}
+	log.Println("New Messages JSON: ", newMessagesJSON)
 
 	var newMessages []entity.Message
 	for _, msgJSON := range newMessagesJSON {
 		var msg entity.Message
 		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
-			log.Printf("Failed to deserialize message: %v", err)
+			log.Printf("Failed to deserialize message: %s, Error: %v", msgJSON, err)
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": "Failed to deserialize message",
 			})
