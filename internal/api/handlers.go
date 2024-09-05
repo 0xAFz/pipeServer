@@ -164,6 +164,7 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 		})
 	}
 
+	log.Printf("Serialized JSON: %s\n", string(messageJSON))
 	if err := w.App.Message.AddToRedis(c.Request().Context(), u.ID, string(messageJSON)); err != nil {
 		log.Printf("Failed to add message to Redis, Error: %v\n", err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
@@ -321,7 +322,9 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 	messageJSON, err := w.App.Message.ListenForNewMessage(c.Request().Context(), authUser.ID, timeout)
 	if err != nil {
 		log.Printf("Failed to get new messages from redis: %v\n", err)
-		return echo.NewHTTPError(http.StatusNoContent, "timeout")
+		return c.JSON(http.StatusNoContent, map[string]any{
+			"error": "timeout",
+		})
 	}
 
 	var message entity.Message
