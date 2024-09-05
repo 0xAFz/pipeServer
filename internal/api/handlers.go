@@ -243,7 +243,7 @@ func (w *WebApp) deleteAccount(c echo.Context) error {
 	log.Printf("User deleted successfully for ID: %d\n", authUser.ID)
 	_, err = w.bot.Send(&telebot.Chat{ID: authUser.ID}, "حساب کاربری شما با موفقیت حذف شد. توجه داشته باشید که اگر دوباره وارد مینی اپ شوید حساب کاربری جدیدی برای شما ساخته می شود.")
 	if err != nil {
-		log.Printf("Failed to send account deletion notification to UserID: %d, Error: %v", authUser.ID, err)
+		log.Printf("Failed to send account deletion notification to UserID: %d, Error: %v\n", authUser.ID, err)
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
@@ -314,7 +314,7 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid timeout value")
 	}
 
-	log.Printf("Timeout set to %.2f seconds", timeout)
+	log.Printf("Timeout set to %.2f seconds\n", timeout)
 
 	authUser := c.Get("user").(telebot.User)
 
@@ -429,7 +429,7 @@ func (w *WebApp) withAuth(next echo.HandlerFunc) echo.HandlerFunc {
 		}
 
 		c.Set("user", user)
-		log.Printf("User authenticated successfully: %+v", user)
+		log.Printf("User authenticated successfully: %+v\n", user)
 
 		return next(c)
 	}
