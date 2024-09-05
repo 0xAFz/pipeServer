@@ -35,6 +35,6 @@ func (m *MessageService) GetRedisMessages(ctx context.Context, userID, start, st
 	return m.redisRepository.GetMessages(ctx, userID, start, stop)
 }
 
-func (m *MessageService) ListenForNewMessage(ctx context.Context, userID int64, timeout float64) ([]string, error) {
+func (m *MessageService) ListenForNewMessage(ctx context.Context, userID int64, timeout float64) (string, error) {
 	return m.redisRepository.WaitForNewMessage(ctx, userID, timeout)
 }

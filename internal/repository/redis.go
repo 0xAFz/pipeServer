@@ -39,8 +39,8 @@ func (r *RedisRepo) GetMessages(ctx context.Context, userID, start, stop int64) 
 	return messages, nil
 }
 
-func (r *RedisRepo) WaitForNewMessage(ctx context.Context, userID int64, timeout float64) ([]string, error) {
+func (r *RedisRepo) WaitForNewMessage(ctx context.Context, userID int64, timeout float64) (string, error) {
 	listKey := fmt.Sprintf("user:%d:messages", userID)
 	cmd := r.client.B().Blpop().Key(listKey).Timeout(timeout).Build()
-	return r.client.Do(ctx, cmd).AsStrSlice()
+	return r.client.Do(ctx, cmd).ToString()
 }

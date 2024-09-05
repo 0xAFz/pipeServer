@@ -26,5 +26,5 @@ type Message interface {
 type RedisRepository interface {
 	PushMessage(ctx context.Context, userID int64, message string) error
 	GetMessages(ctx context.Context, userID, start, stop int64) ([]string, error)
-	WaitForNewMessage(ctx context.Context, userID int64, timeout float64) ([]string, error)
+	WaitForNewMessage(ctx context.Context, userID int64, timeout float64) (string, error)
 }
