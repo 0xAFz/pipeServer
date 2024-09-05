@@ -308,13 +308,13 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 			"error": "Failed to get messages",
 		})
 	}
-	log.Println("Messages JSON: ", messagesJSON)
+	log.Printf("Messages JSON: %#v Items length: %d\n", messagesJSON, len(messagesJSON))
 
 	var messages []entity.Message
 	for _, msgJSON := range messagesJSON {
 		var msg entity.Message
 		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
-			log.Printf("Failed to deserialize message: %s, Error: %v", msgJSON, err)
+			log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": "Failed to deserialize message",
 			})
@@ -327,10 +327,10 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 		return c.JSON(http.StatusOK, messages)
 	}
 
-	log.Printf("User not have messages in redis. Waiting for new messages: \n")
+	log.Println("User not have messages in redis. Waiting for new messages..")
 	newMessagesJSON, err := w.App.Message.ListenForNewMessage(c.Request().Context(), authUser.ID, timeout)
 	if err != nil {
-		log.Printf("Failed to get new messages from redis: %v\n", err)
+		log.Printf("Failed to get new messages from redis, Error: %v\n", err)
 		if errors.Is(err, rueidis.Nil) {
 			return c.JSON(http.StatusNoContent, map[string]any{
 				"error": "Messages are empty",
@@ -340,13 +340,13 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 			"error": "timeout",
 		})
 	}
-	log.Println("New Messages JSON: ", newMessagesJSON)
+	log.Printf("New messages JSON: %#v, Items length: %d\n", newMessagesJSON, len(newMessagesJSON))
 
 	var newMessages []entity.Message
 	for _, msgJSON := range newMessagesJSON {
 		var msg entity.Message
 		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
-			log.Printf("Failed to deserialize message: %s, Error: %v", msgJSON, err)
+			log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
 			return c.JSON(http.StatusInternalServerError, map[string]any{
 				"error": "Failed to deserialize message",
 			})
