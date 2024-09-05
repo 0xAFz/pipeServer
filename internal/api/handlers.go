@@ -310,7 +310,7 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 	}
 	log.Printf("Messages JSON: %#v Items length: %d\n", messagesJSON, len(messagesJSON))
 
-	if len(messagesJSON) < 0 {
+	if len(messagesJSON) < 1 {
 		log.Printf("Messages retrieved from redis are empty: %#v for user: %d\n", messagesJSON, authUser.ID)
 		return c.JSON(http.StatusNoContent, map[string]any{
 			"error": "Messages are empty",
