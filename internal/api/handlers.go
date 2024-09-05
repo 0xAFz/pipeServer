@@ -311,7 +311,7 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 	log.Printf("Messages JSON: %#v Items length: %d\n", messagesJSON, len(messagesJSON))
 
 	var messages []entity.Message
-	for _, msgJSON := range messagesJSON {
+	for _, msgJSON := range messagesJSON[1:] {
 		var msg entity.Message
 		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
 			log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
@@ -328,30 +328,34 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 	}
 
 	log.Println("User not have messages in redis. Waiting for new messages..")
-	newMessageJSON, err := w.App.Message.ListenForNewMessage(c.Request().Context(), authUser.ID, timeout)
+	newMessagesJSON, err := w.App.Message.ListenForNewMessage(c.Request().Context(), authUser.ID, timeout)
 	if err != nil {
 		log.Printf("Failed to get new messages from redis, Error: %v\n", err)
 		if errors.Is(err, rueidis.Nil) {
 			return c.JSON(http.StatusNoContent, map[string]any{
-				"error": "Message are empty",
+				"error": "Messages are empty",
 			})
 		}
 		return c.JSON(http.StatusNoContent, map[string]any{
 			"error": "timeout",
 		})
 	}
-	log.Printf("New message JSON: %#v\n", newMessageJSON)
+	log.Printf("New messages JSON: %#v, Items length: %d\n", newMessagesJSON, len(newMessagesJSON))
 
-	var newMessage entity.Message
-	if err := json.Unmarshal([]byte(newMessageJSON), &newMessage); err != nil {
-		log.Printf("Failed to deserialize message: %s, Error: %v\n", newMessageJSON, err)
-		return c.JSON(http.StatusInternalServerError, map[string]any{
-			"error": "Failed to deserialize message",
-		})
+	var newMessages []entity.Message
+	for _, msgJSON := range newMessagesJSON[1:] {
+		var msg entity.Message
+		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
+			log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
+			return c.JSON(http.StatusInternalServerError, map[string]any{
+				"error": "Failed to deserialize message",
+			})
+		}
+		newMessages = append(newMessages, msg)
 	}
 
-	log.Printf("New message retrieved from redis %#v\n", newMessage)
-	return c.JSON(http.StatusOK, newMessage)
+	log.Printf("New message retrieved from redis %#v\n", newMessages)
+	return c.JSON(http.StatusOK, newMessages)
 }
 
 func (w *WebApp) withAuth(next echo.HandlerFunc) echo.HandlerFunc {
