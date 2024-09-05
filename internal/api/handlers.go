@@ -293,12 +293,23 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 
 	authUser := c.Get("user").(telebot.User)
 
-	messages, err := w.App.Message.GetRedisMessages(c.Request().Context(), authUser.ID, -100, -1)
+	messagesJSON, err := w.App.Message.GetRedisMessages(c.Request().Context(), authUser.ID, 0, -1)
 	if err != nil {
 		log.Printf("Failed to get messages for user: %d with error: %v\n", authUser.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
 			"error": "Failed to get messages",
 		})
+	}
+
+	var messages []entity.Message
+	for _, msgJSON := range messagesJSON {
+		var msg entity.Message
+		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
+			return c.JSON(http.StatusInternalServerError, map[string]any{
+				"error": "Failed to deserialize message",
+			})
+		}
+		messages = append(messages, msg)
 	}
 
 	if len(messages) > 0 {
@@ -307,10 +318,17 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 	}
 
 	log.Printf("User not have messages in redis. Waiting for new messages: \n")
-	message, err := w.App.Message.ListenForNewMessage(c.Request().Context(), authUser.ID, timeout)
+	messageJSON, err := w.App.Message.ListenForNewMessage(c.Request().Context(), authUser.ID, timeout)
 	if err != nil {
 		log.Printf("Failed to get new messages from redis: %v\n", err)
 		return echo.NewHTTPError(http.StatusNoContent, "timeout")
+	}
+
+	var message entity.Message
+	if err := json.Unmarshal([]byte(messageJSON), &message); err != nil {
+		return c.JSON(http.StatusInternalServerError, map[string]any{
+			"error": "Failed to deserialize message",
+		})
 	}
 
 	log.Printf("New message retrieved from redis %#v\n", message)
