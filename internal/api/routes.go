@@ -1,13 +1,15 @@
 package api
 
 import (
+	"pipe/internal/config"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 )
 
 func (w *WebApp) routes() {
 	w.e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     []string{config.AppConfig.ClientURL},
 		AllowMethods:     []string{echo.OPTIONS, echo.HEAD, echo.GET, echo.POST, echo.PUT, echo.DELETE, echo.PATCH, "*"},
 		AllowHeaders:     []string{"*", echo.HeaderAuthorization},
 		AllowCredentials: true,

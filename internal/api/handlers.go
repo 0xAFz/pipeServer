@@ -26,14 +26,16 @@ import (
 )
 
 func (w *WebApp) index(c echo.Context) error {
-	log.Printf("Handling request to index endpoint from URI: %s\n", c.Request().RequestURI)
+	log.Printf("Handling index request from URI: %s\n", c.Request().RequestURI)
+
 	return c.JSON(http.StatusOK, map[string]any{
 		"status": "ok",
 	})
 }
 
 func (w *WebApp) getMe(c echo.Context) error {
-	log.Printf("Handling request to getMe endpoint from URI: %s\n", c.Request().RequestURI)
+	log.Printf("Handling getMe request from URI: %s\n", c.Request().RequestURI)
+
 	authUser := c.Get("user").(telebot.User)
 
 	u, err := w.App.Account.GetUserByID(authUser.ID)
@@ -62,7 +64,8 @@ func (w *WebApp) getMe(c echo.Context) error {
 }
 
 func (w *WebApp) getUser(c echo.Context) error {
-	log.Printf("Handling request to getUser endpoint from URI: %s\n", c.Request().RequestURI)
+	log.Printf("Handling getUser request from URI: %s\n", c.Request().RequestURI)
+
 	privateID := c.Param("privateID")
 
 	if privateID == "" {
@@ -92,7 +95,8 @@ func (w *WebApp) getUser(c echo.Context) error {
 }
 
 func (w *WebApp) getMessages(c echo.Context) error {
-	log.Printf("Handling request to getMessages endpoint from URI: %s\n", c.Request().RequestURI)
+	log.Printf("Handling getMessages request from URI: %s\n", c.Request().RequestURI)
+
 	authUser := c.Get("user").(telebot.User)
 
 	messages, err := w.App.Message.GetUserMessages(authUser.ID)
@@ -108,32 +112,33 @@ func (w *WebApp) getMessages(c echo.Context) error {
 }
 
 func (w *WebApp) sendMessage(c echo.Context) error {
-	log.Printf("Handling request to sendMessage endpoint from URI: %s\n", c.Request().RequestURI)
-
-	var text entity.Text
-	err := c.Bind(&text)
-	if err != nil {
-		log.Println("Failed to bind request body to Text entity")
-		return c.JSON(http.StatusBadRequest, map[string]any{
-			"error": "Message can't be empty",
-		})
-	}
-
-	if len(strings.TrimSpace(text.Message)) == 0 {
-		return c.JSON(http.StatusBadRequest, map[string]any{
-			"error": "Message can't be empty",
-		})
-	}
+	log.Printf("Handling sendMessage request from URI: %s\n", c.Request().RequestURI)
 
 	privateID := c.Param("privateID")
-	authUser := c.Get("user").(telebot.User)
-
 	if privateID == "" {
 		log.Println("Private ID is missing in request")
 		return c.JSON(http.StatusBadRequest, map[string]any{
 			"error": "Private ID can't be empty",
 		})
 	}
+
+	var text entity.Text
+	if err := c.Bind(&text); err != nil {
+		log.Println("Failed to bind request body to Text entity")
+		return c.JSON(http.StatusBadRequest, map[string]any{
+			"error": "Message can't be empty",
+		})
+	}
+
+	messageContent := strings.TrimSpace(text.Message)
+	if messageContent == "" {
+		log.Println("Received empty message content")
+		return c.JSON(http.StatusBadRequest, map[string]any{
+			"error": "Message can't be empty",
+		})
+	}
+
+	authUser := c.Get("user").(telebot.User)
 
 	u, err := w.App.Account.GetUserByPrivateID(privateID)
 	if err != nil {
@@ -145,11 +150,18 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 		}
 		log.Printf("Failed to retrieve user for PrivateID: %s, Error: %v\n", privateID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
-			"error": "Failed to get user",
+			"error": "Failed to retrieve user",
 		})
 	}
 
-	message := entity.Message{ID: gocql.TimeUUID(), FromUser: authUser.ID, ToUser: u.ID, Text: text.Message, Date: time.Now().Unix()}
+	message := entity.Message{
+		ID:       gocql.TimeUUID(),
+		FromUser: authUser.ID,
+		ToUser:   u.ID,
+		Text:     messageContent,
+		Date:     time.Now().Unix(),
+	}
+
 	if err := w.App.Message.Send(message); err != nil {
 		log.Printf("Failed to send message from UserID: %d to UserID: %d, Error: %v\n", authUser.ID, u.ID, err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
@@ -157,7 +169,12 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 		})
 	}
 
-	outMessage := entity.Message{ID: message.ID, Text: message.Text, Date: message.Date}
+	outMessage := entity.Message{
+		ID:   message.ID,
+		Text: message.Text,
+		Date: message.Date,
+	}
+
 	messageJSON, err := json.Marshal(outMessage)
 	if err != nil {
 		log.Printf("Failed to serialize message to JSON, Error: %v\n", err)
@@ -166,15 +183,17 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 		})
 	}
 
-	log.Printf("Serialized JSON: %#v, Type: %T", string(messageJSON), string(messageJSON))
+	log.Printf("Serialized message JSON: %s\n", string(messageJSON))
+
 	if err := w.App.Message.AddToRedis(c.Request().Context(), u.ID, string(messageJSON)); err != nil {
 		log.Printf("Failed to add message to Redis, Error: %v\n", err)
 		return c.JSON(http.StatusInternalServerError, map[string]any{
-			"error": "Failed to add message to Redis",
+			"error": "Failed to send message",
 		})
 	}
 
 	log.Printf("Message sent successfully from UserID: %d to UserID: %d\n", authUser.ID, u.ID)
+
 	_, err = w.bot.Send(&telebot.Chat{ID: u.ID}, "یه پیام جدید داری.", &telebot.ReplyMarkup{
 		InlineKeyboard: [][]telebot.InlineButton{
 			{
@@ -191,12 +210,13 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, map[string]any{
-		"status": "Message sent.",
+		"status": "Message sent",
 	})
 }
 
 func (w *WebApp) deleteAccount(c echo.Context) error {
-	log.Printf("Handling request to deleteAccount endpoint from URI: %s\n", c.Request().RequestURI)
+	log.Printf("Handling deleteAccount request from URI: %s\n", c.Request().RequestURI)
+
 	authUser := c.Get("user").(telebot.User)
 
 	u, err := w.App.Account.GetUserByID(authUser.ID)
@@ -232,7 +252,7 @@ func (w *WebApp) deleteAccount(c echo.Context) error {
 }
 
 func (w *WebApp) setPubKey(c echo.Context) error {
-	log.Printf("Handling request to setPubKey endpoint from URI: %s\n", c.Request().RequestURI)
+	log.Printf("Handling setPupKey request from URI: %s\n", c.Request().RequestURI)
 
 	var pubkey entity.PubKey
 	err := c.Bind(&pubkey)
@@ -281,87 +301,75 @@ func (w *WebApp) setPubKey(c echo.Context) error {
 }
 
 func (w *WebApp) getUpdates(c echo.Context) error {
-	log.Printf("Handling request to getUpdates endpoint from URI: %s\n", c.Request().RequestURI)
+	log.Printf("Handling getUpdates request from URI: %s\n", c.Request().RequestURI)
 
 	timeoutStr := c.QueryParam("timeout")
 	if timeoutStr == "" {
 		timeoutStr = "0.0"
 	}
+
 	timeout, err := strconv.ParseFloat(timeoutStr, 64)
 	if err != nil {
-		log.Printf("Invalid timeout value: %v", err)
+		log.Printf("Error parsing timeout value '%s': %v\n", timeoutStr, err)
 		return echo.NewHTTPError(http.StatusBadRequest, "Invalid timeout value")
 	}
-	log.Printf("The timeout was set to %f seconds\n", timeout)
+
+	log.Printf("Timeout set to %.2f seconds", timeout)
 
 	authUser := c.Get("user").(telebot.User)
 
 	messagesJSON, err := w.App.Message.GetRedisMessages(c.Request().Context(), authUser.ID, 0, -1)
 	if err != nil {
-		log.Printf("Failed to get messages for user: %d, Error: %v\n", authUser.ID, err)
+		log.Printf("Error retrieving messages for user ID %d: %v\n", authUser.ID, err)
 		if errors.Is(err, rueidis.Nil) {
-			return c.JSON(http.StatusNoContent, map[string]any{
-				"error": "Messages are empty",
-			})
+			return c.JSON(http.StatusNoContent, map[string]any{"error": "No messages available"})
 		}
-		return c.JSON(http.StatusInternalServerError, map[string]any{
-			"error": "Failed to get messages",
-		})
+		return c.JSON(http.StatusInternalServerError, map[string]any{"error": "Failed to retrieve messages"})
 	}
-	log.Printf("Messages JSON: %#v Items length: %d\n", messagesJSON, len(messagesJSON))
 
 	if len(messagesJSON) > 0 {
-		var messages []entity.Message
-		for _, msgJSON := range messagesJSON[1:] {
-			var msg entity.Message
-			if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
-				log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
-				return c.JSON(http.StatusInternalServerError, map[string]any{
-					"error": "Failed to deserialize message",
-				})
-			}
-			messages = append(messages, msg)
+		messages, err := deserializeMessages(messagesJSON[1:])
+		if err != nil {
+			log.Printf("Error deserializing messages: %v\n", err)
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "Failed to deserialize messages"})
 		}
-
-		log.Printf("Messages retrieved from redis: %#v for user: %d\n", messages, authUser.ID)
+		log.Printf("Retrieved %d messages for user ID %d\n", len(messages), authUser.ID)
 		return c.JSON(http.StatusOK, messages)
 	}
 
-	log.Println("User not have messages in redis. Waiting for new messages..")
+	log.Println("No messages in Redis. Waiting for new messages...")
 	newMessagesJSON, err := w.App.Message.ListenForNewMessage(c.Request().Context(), authUser.ID, timeout)
 	if err != nil {
-		log.Printf("Failed to get new messages from redis, Error: %v\n", err)
+		log.Printf("Error retrieving new messages for user ID %d: %v\n", authUser.ID, err)
 		if errors.Is(err, rueidis.Nil) {
-			return c.JSON(http.StatusNoContent, map[string]any{
-				"error": "Messages are empty",
-			})
+			return c.JSON(http.StatusNoContent, map[string]any{"error": "No new messages"})
 		}
-		return c.JSON(http.StatusNoContent, map[string]any{
-			"error": "timeout",
-		})
+		return c.JSON(http.StatusInternalServerError, map[string]any{"error": "Failed to retrieve new messages"})
 	}
-	log.Printf("New messages JSON: %#v, Items length: %d\n", newMessagesJSON, len(newMessagesJSON))
 
 	if len(newMessagesJSON) > 0 {
-		var newMessages []entity.Message
-		for _, msgJSON := range newMessagesJSON[1:] {
-			var msg entity.Message
-			if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
-				log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
-				return c.JSON(http.StatusInternalServerError, map[string]any{
-					"error": "Failed to deserialize message",
-				})
-			}
-			newMessages = append(newMessages, msg)
+		newMessages, err := deserializeMessages(newMessagesJSON[1:])
+		if err != nil {
+			log.Printf("Error deserializing new messages: %v\n", err)
+			return c.JSON(http.StatusInternalServerError, map[string]any{"error": "Failed to deserialize messages"})
 		}
-
-		log.Printf("New message retrieved from redis %#v\n", newMessages)
+		log.Printf("Retrieved %d new messages for user ID %d\n", len(newMessages), authUser.ID)
 		return c.JSON(http.StatusOK, newMessages)
 	}
 
-	return c.JSON(http.StatusNoContent, map[string]any{
-		"error": "Messages are empty",
-	})
+	return c.JSON(http.StatusNoContent, map[string]any{"error": "No new messages"})
+}
+
+func deserializeMessages(messagesJSON []string) ([]entity.Message, error) {
+	var messages []entity.Message
+	for _, msgJSON := range messagesJSON {
+		var msg entity.Message
+		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
+			return nil, err
+		}
+		messages = append(messages, msg)
+	}
+	return messages, nil
 }
 
 func (w *WebApp) withAuth(next echo.HandlerFunc) echo.HandlerFunc {

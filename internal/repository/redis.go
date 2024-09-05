@@ -31,8 +31,8 @@ func (r *RedisRepo) GetMessages(ctx context.Context, userID, start, stop int64) 
 		return nil, err
 	}
 
-	cmd = r.client.B().Del().Key(listKey).Build()
-	if err := r.client.Do(ctx, cmd).Error(); err != nil {
+	delCmd := r.client.B().Del().Key(listKey).Build()
+	if err := r.client.Do(ctx, delCmd).Error(); err != nil {
 		return nil, err
 	}
 
