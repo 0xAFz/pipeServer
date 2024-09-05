@@ -194,7 +194,7 @@ func (w *WebApp) sendMessage(c echo.Context) error {
 
 	log.Printf("Message sent successfully from UserID: %d to UserID: %d\n", authUser.ID, u.ID)
 
-	_, err = w.bot.Send(&telebot.Chat{ID: u.ID}, "یه پیام جدید داری.", &telebot.ReplyMarkup{
+	_, err = w.bot.Send(&telebot.Chat{ID: u.ID}, "یه پیام جدید داری 🍕", &telebot.ReplyMarkup{
 		InlineKeyboard: [][]telebot.InlineButton{
 			{
 				{
