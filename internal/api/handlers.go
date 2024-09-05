@@ -310,26 +310,19 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 	}
 	log.Printf("Messages JSON: %#v Items length: %d\n", messagesJSON, len(messagesJSON))
 
-	if len(messagesJSON) < 1 {
-		log.Printf("Messages retrieved from redis are empty: %#v for user: %d\n", messagesJSON, authUser.ID)
-		return c.JSON(http.StatusNoContent, map[string]any{
-			"error": "Messages are empty",
-		})
-	}
-
-	var messages []entity.Message
-	for _, msgJSON := range messagesJSON[1:] {
-		var msg entity.Message
-		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
-			log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"error": "Failed to deserialize message",
-			})
+	if len(messagesJSON) > 0 {
+		var messages []entity.Message
+		for _, msgJSON := range messagesJSON[1:] {
+			var msg entity.Message
+			if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
+				log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
+				return c.JSON(http.StatusInternalServerError, map[string]any{
+					"error": "Failed to deserialize message",
+				})
+			}
+			messages = append(messages, msg)
 		}
-		messages = append(messages, msg)
-	}
 
-	if len(messages) > 0 {
 		log.Printf("Messages retrieved from redis: %#v for user: %d\n", messages, authUser.ID)
 		return c.JSON(http.StatusOK, messages)
 	}
@@ -349,20 +342,26 @@ func (w *WebApp) getUpdates(c echo.Context) error {
 	}
 	log.Printf("New messages JSON: %#v, Items length: %d\n", newMessagesJSON, len(newMessagesJSON))
 
-	var newMessages []entity.Message
-	for _, msgJSON := range newMessagesJSON[1:] {
-		var msg entity.Message
-		if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
-			log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
-			return c.JSON(http.StatusInternalServerError, map[string]any{
-				"error": "Failed to deserialize message",
-			})
+	if len(newMessagesJSON) > 0 {
+		var newMessages []entity.Message
+		for _, msgJSON := range newMessagesJSON[1:] {
+			var msg entity.Message
+			if err := json.Unmarshal([]byte(msgJSON), &msg); err != nil {
+				log.Printf("Failed to deserialize message: %s, Error: %v\n", msgJSON, err)
+				return c.JSON(http.StatusInternalServerError, map[string]any{
+					"error": "Failed to deserialize message",
+				})
+			}
+			newMessages = append(newMessages, msg)
 		}
-		newMessages = append(newMessages, msg)
+
+		log.Printf("New message retrieved from redis %#v\n", newMessages)
+		return c.JSON(http.StatusOK, newMessages)
 	}
 
-	log.Printf("New message retrieved from redis %#v\n", newMessages)
-	return c.JSON(http.StatusOK, newMessages)
+	return c.JSON(http.StatusNoContent, map[string]any{
+		"error": "Messages are empty",
+	})
 }
 
 func (w *WebApp) withAuth(next echo.HandlerFunc) echo.HandlerFunc {
