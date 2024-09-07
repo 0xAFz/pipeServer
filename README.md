@@ -6,6 +6,7 @@ Pipe is a Telegram Mini App with E2EE (ECC + AES), Users can send hidden message
 
 ### Requirements
 - [Golang](https://go.dev/doc/install) v1.22.5
+- [Redis](https://redis.io/) v7.4
 - [Apache Cassandra](https://cassandra.apache.org) v5.0-rc1
 - [Docker](https://www.docker.com/) and [Docker Compose](https://docs.docker.com/compose/) plugin
 
@@ -17,9 +18,9 @@ Pipe is a Telegram Mini App with E2EE (ECC + AES), Users can send hidden message
    cd pipeServer
    ```
 
-2. Start the Cassandra instance using Docker Compose:
+2. Start the Cassandra and Redis instance using Docker Compose:
    ```bash
-   docker compose -f docker-compose.yml up -d
+   docker compose -f compose.yml up -d
    ```
 
 3. Set up the environment variables:
@@ -48,15 +49,20 @@ Pipe is a Telegram Mini App with E2EE (ECC + AES), Users can send hidden message
    git clone https://github.com/0xAFz/pipeServer.git
    cd pipeServer
    ```
-
-2. Build and start the production services:
+2. Set up the environment variables:
    ```bash
-   docker compose -f docker-compose.prod.yml up --build -d
+   cp .env.example .env
+   ```
+   Edit the `.env` file and replace the placeholder values with your actual configuration.
+
+3. Build and start the production services:
+   ```bash
+   docker compose -f prod.compose.yml up --build -d
    ```
 
    At this point, the Pipe server will be running on `http://127.0.0.1:1323`, accessible only from the local network.
 
-3. Set up Nginx as a reverse proxy to route requests to the Pipe service. We'll cover the process of installing Nginx directly on the VM.
+4. Set up Nginx as a reverse proxy to route requests to the Pipe service. We'll cover the process of installing Nginx directly on the VM.
 
 ### Setting Up HTTPS with Nginx
 
@@ -132,13 +138,13 @@ You should receive a response like this:
 1. Regularly update your server and Docker images:
    ```bash
    sudo apt update && sudo apt upgrade -y
-   docker compose -f docker-compose.prod.yml pull
-   docker compose -f docker-compose.prod.yml up -d
+   docker compose -f prod.compose.yml pull
+   docker compose -f prod.compose.yml up -d
    ```
 
 2. Monitor logs:
    ```bash
-   docker compose -f docker-compose.prod.yml logs -f
+   docker compose -f prod.compose.yml logs -f
    ```
 
 3. Set up a monitoring solution like Prometheus and Grafana for better observability.
@@ -149,7 +155,7 @@ You should receive a response like this:
 
 - If you encounter issues, check the Docker logs:
   ```bash
-  docker compose -f docker-compose.prod.yml logs
+  docker compose -f prod.compose.yml logs
   ```
 
 - Verify Nginx logs:
