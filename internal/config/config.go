@@ -2,6 +2,7 @@ package config
 
 import (
 	"log"
+	"os"
 
 	"github.com/spf13/viper"
 )
@@ -19,13 +20,15 @@ type Config struct {
 var AppConfig *Config
 
 func LoadConfig() {
-	viper.SetConfigFile(".env")
-	viper.AutomaticEnv()
-
-	err := viper.ReadInConfig()
-	if err != nil {
-		log.Fatalf("Error reading config file: %v", err)
+	env := os.Getenv("GO_ENV")
+	if env == "dev" {
+		viper.SetConfigFile(".env")
+		if err := viper.ReadInConfig(); err != nil {
+			log.Fatalf("Error reading .env file: %v", err)
+		}
 	}
+
+	viper.AutomaticEnv()
 
 	AppConfig = &Config{
 		RedisHost:         viper.GetString("REDIS_HOST"),

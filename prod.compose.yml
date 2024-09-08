@@ -54,7 +54,7 @@ services:
     networks:
       - pipe-net
     ports:
-      - "127.0.0.1:6379:6379"
+      - "127.0.0.1:${REDIS_PORT}:${REDIS_PORT}"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -66,11 +66,11 @@ services:
         delay: 5s
 
   pipe-server:
-    image: pipe/server
-    container_name: pipe-server
     build:
       context: .
       dockerfile: Dockerfile
+    image: pipe
+    container_name: pipe-server
     depends_on:
       cassandra:
         condition: service_healthy
@@ -82,10 +82,19 @@ services:
     networks:
       - pipe-net
     volumes:
-      - ./.env:/app/.env
       - ./assets:/app/assets
     ports:
       - "127.0.0.1:1323:1323"
+    env_file:
+      - .env
+    environment:
+      - REDIS_HOST=${REDIS_HOST}
+      - CASSANDRA_HOST=${CASSANDRA_HOST}
+      - CASSANDRA_KEYSPACE=${CASSANDRA_KEYSPACE}
+      - TOKEN=${TOKEN}
+      - SERVER_ADDR=${SERVER_ADDR}
+      - CLIENT_URL=${CLIENT_URL}
+      - PROXY_ADDR=${PROXY_ADDR}
     deploy:
       restart_policy:
         condition: on-failure
