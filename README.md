@@ -26,6 +26,8 @@ Pipe is a Telegram Mini App with E2EE (ECC + AES), Users can send hidden message
 3. Set up the environment variables:
    ```bash
    cp .env.example .env
+   
+   export GO_ENV=dev
    ```
    Edit the `.env` file and replace the placeholder values with your actual configuration.
 
